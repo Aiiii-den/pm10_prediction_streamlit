@@ -1,17 +1,16 @@
-# import streamlit as st
-
-
-# st.write(
-#   "Let's start building! For help and inspiration, head over to [docs.streamlit.io](https://docs.streamlit.io/)."
-# )
-
+import re
+import threading
+import time
 import streamlit as st
 import pandas as pd
 import pickle
 import numpy as np
 
+from api_call import load_historical_data, fetch_latest_hour_data
 
-# Load your pre-trained model from local storage (e.g., a pickle file)
+
+# ---- ML MODEL STUFF ----
+
 @st.cache_resource
 def load_model():
     with open('mc124_randomforest.pkl', 'rb') as f:
@@ -20,71 +19,104 @@ def load_model():
 
 
 model = load_model()
+# ---- DATA LOGIC ----
+
+# Define the stations
+stations = ["Tempelhof-Schöneberg (mc124)", "Wedding (mc010)"]
+pattern = r'\(([^)]+)\)'
+
+
+# Calls function from api_call.py to load initial data
+@st.cache_data()
+def get_initial_data():
+    all_data = {}
+    for station in stations:
+        match = re.search(pattern, station)
+        all_data[station] = load_historical_data(match.group(1))
+    return all_data
+
+
+# Load initial data
+if 'incremented_data' not in st.session_state:
+    st.session_state['incremented_data'] = get_initial_data()
+
+
+def update_data():
+    all_data = st.session_state['incremented_data']
+    for station in all_data.keys():
+        latest_hour_data = fetch_latest_hour_data(station)
+        if not latest_hour_data.empty:
+            all_data[station] = pd.concat([all_data[station], latest_hour_data], ignore_index=True)
+    st.session_state['incremented_data'] = all_data
+
+
+# TODO FIX because I wont deploy on exact hour
+# Update data periodically
+if 'last_update' not in st.session_state:
+    st.session_state['last_update'] = time.time()
+
+# Calculate elapsed time and refresh data if necessary
+elapsed_time = time.time() - st.session_state['last_update']
+if elapsed_time > 3600:  # 1 hour
+    update_data()
+    st.session_state['last_update'] = time.time()
+    st.rerun()  # Refresh the Streamlit app
+
+# ---- UI STUFF ----
 
 st.title("PM10 LEVEL OVERVIEW")
-
 
 # ---- CHOOSE STATION TO PREDICT AND OVERVIEW ----
 st.subheader(f"Prediction of pm10 for the current hour", divider="blue")
 
-
-option = st.selectbox(
+chosen_station = st.selectbox(
     "Which station would you like to get the data for?",
-    ("Tempelhof-Schöneberg (mc124)", "IDK", "IDK 2"),
+    stations,
 )
-predicted_pm10 = 2.90
-r2_score = 0.53
+
+
+df = st.session_state['incremented_data'][chosen_station]
+df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce', utc=True) #TODO remove utc=True once datetime has been formatted
+
+# input_data_prediction = pd.DataFrame({
+#    'pm10_h-1': df["core"] == "pm10",
+#    # Add more features as needed
+# })
+
+#TODO call api and create input data + let it predict
+predicted_pm10 = 5  # model.predict()
+
 
 if predicted_pm10 > 20:
     status_text = f":red[UNHEALTHY]"
 else:
-    status_text = f":green[HEALTHY]"
+    status_text = f":green[SAFE]"
 
-# Display the string with conditional formatting
-st.markdown(f"PM10 value for {option}: **{predicted_pm10:.2f} µg/m³** - **{status_text}**")
+st.markdown(f"PM10 value for {chosen_station}: **{predicted_pm10:.2f} µg/m³** - **{status_text}**")
 
-#st.write(f"**Current predicted PM10 value for {option}**: {predicted_pm10:.2f} µg/m³")
-st.write(f"R2 score of predicted PM10 value: **{r2_score}**")
-# Import your preprocessing script (if necessary)
-# from data_processing import load_and_preprocess_data
+r2_score = 0.2
+st.write(f"R2 score of previous hour PM10 prediction: **{r2_score}**")
 
-# Sample Data Loading (You can replace this with your own function)
-
-st.subheader(f"Overview of pm10 progression for {option}", divider="blue")
-
-@st.cache_data
-def load_data():
-    df = pd.read_csv('df_h-1_complete_mc124.csv', parse_dates=['datetime'])
-    return df
-
-
-df = load_data()
-
-
-# Sample Data Loading (You can replace this with your own function)
-@st.cache_data
-def load_data():
-    df = pd.read_csv('df_h-1_complete_mc124.csv', parse_dates=['datetime'])
-    return df
-
-
-df = load_data()
+st.subheader(f"Overview of pm10 progression for {chosen_station}", divider="blue")
 
 # Sidebar for User Inputs
 st.sidebar.header('View Options')
 view = st.sidebar.selectbox('Select View', [
-    'Yearly Overview (Comparison)',
-    'Monthly Average (One Year)',
-    'Weekly Overview (Daily Averages)',
-    'Daily View (Hourly Averages)'
+    'Yearly Comparison (Yearly Averages)',
+    'Monthly Comparison (Monthly Averages)',
+    'Weekly Comparison (Daily Averages)',
+    'Daily Comparison (Hourly Averages)'
 ])
 
-# Shared Date Filters
 start_year = df['datetime'].dt.year.min()
 end_year = df['datetime'].dt.year.max()
 
 # Define each visualization case
-if view == 'Yearly Overview (Comparison)':
+import streamlit as st
+import pandas as pd
+
+# Define each visualization case
+if view == 'Yearly Comparison (Yearly Averages)':
     # Select multiple years for comparison
     selected_years = st.sidebar.multiselect(
         'Select Years to Compare',
@@ -95,16 +127,20 @@ if view == 'Yearly Overview (Comparison)':
     # Filter data based on the selected years
     df_filtered = df[df['datetime'].dt.year.isin(selected_years)]
 
-    # Group by year and calculate the yearly sum/mean
-    df_grouped = df_filtered.groupby(df_filtered['datetime'].dt.year)['pm10'].mean().reset_index()
+    # Group by year and calculate the yearly mean
+    df_grouped = df_filtered.groupby(df_filtered['datetime'].dt.year)['value'].mean().reset_index()
 
     # Rename columns for clearer chart display
     df_grouped.columns = ['Year', 'Average pm10']
 
-    # Plotting without months or commas (just the years)
-    st.line_chart(df_grouped.rename(columns={'Year': 'index'}).set_index('index'))
+    # Convert 'Year' to string to ensure categorical x-axis
+    df_grouped['Year'] = df_grouped['Year'].astype(str)
 
-elif view == 'Monthly Average (One Year)':
+    # Plotting
+    st.line_chart(df_grouped.set_index('Year'))
+
+
+elif view == 'Monthly Comparison (Monthly Averages)':
     # Select a single year for the monthly average view
     selected_year = st.sidebar.selectbox(
         'Select Year',
@@ -116,7 +152,7 @@ elif view == 'Monthly Average (One Year)':
     df_filtered = df[df['datetime'].dt.year == selected_year]
 
     # Group by month and calculate the monthly average
-    df_grouped = df_filtered.groupby(df_filtered['datetime'].dt.month)['pm10'].mean().reset_index()
+    df_grouped = df_filtered.groupby(df_filtered['datetime'].dt.month)['value'].mean().reset_index()
     df_grouped.columns = ['Month', 'Average pm10']
 
     # Limit to exactly 12 months (no scrolling further)
@@ -125,7 +161,7 @@ elif view == 'Monthly Average (One Year)':
     # Plotting
     st.line_chart(df_grouped.rename(columns={'Month': 'index'}).set_index('index'))
 
-elif view == 'Weekly Overview (Daily Averages)':
+if view == 'Weekly Comparison (Daily Averages)':
     # Select a year for the weekly view
     selected_year = st.sidebar.selectbox(
         'Select Year',
@@ -133,25 +169,38 @@ elif view == 'Weekly Overview (Daily Averages)':
         index=0
     )
 
-    # Filter data based on the selected year
-    df_filtered = df[df['datetime'].dt.year == selected_year]
+    # Select a week within the selected year
+    selected_week = st.sidebar.selectbox(
+        'Select Week',
+        sorted(df[df['datetime'].dt.year == selected_year]['datetime'].dt.isocalendar().week.unique())
+    )
 
-    # Group by week number and calculate the daily averages per week
-    df_filtered['week'] = df_filtered['datetime'].dt.isocalendar().week
-    df_grouped = df_filtered.groupby('week')['pm10'].mean().reset_index()
-    df_grouped.columns = ['Week', 'Average pm10']
+    # Filter data based on the selected year and week
+    df_filtered = df[
+        (df['datetime'].dt.year == selected_year) &
+        (df['datetime'].dt.isocalendar().week == selected_week)
+        ]
 
-    # Limit to exactly 52 weeks (some years might have 53 weeks)
-    df_grouped = df_grouped[df_grouped['Week'] <= 52]
+    # Extract the day of the week
+    df_filtered['day_of_week'] = df_filtered['datetime'].dt.day_name()
+
+    # Group by day of the week and calculate daily averages
+    df_grouped = df_filtered.groupby('day_of_week')['value'].mean().reset_index()
+
+    # Sort days of the week to ensure the correct order
+    days_order = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    df_grouped['day_of_week'] = pd.Categorical(df_grouped['day_of_week'], categories=days_order, ordered=True)
+    df_grouped = df_grouped.sort_values('day_of_week')
 
     # Plotting
-    st.line_chart(df_grouped.rename(columns={'Week': 'index'}).set_index('index'))
+    st.line_chart(df_grouped.set_index('day_of_week'))
 
-elif view == 'Daily View (Hourly Averages)':
+
+elif view == 'Daily Comparison (Hourly Averages)':
     # Select a specific day for the hourly view
     selected_date = st.sidebar.date_input(
         'Select Date',
-        value=pd.to_datetime('2020-01-01')  # Default date
+        value = pd.Timestamp.now().date()
     )
 
     # Filter data for the selected date
@@ -159,7 +208,7 @@ elif view == 'Daily View (Hourly Averages)':
 
     # Group by hour and calculate the hourly averages
     df_filtered['hour'] = df_filtered['datetime'].dt.hour
-    df_grouped = df_filtered.groupby('hour')['pm10'].mean().reset_index()
+    df_grouped = df_filtered.groupby('hour')['value'].mean().reset_index()
     df_grouped.columns = ['Hour', 'Average pm10']
 
     # Limit to 24 hours
