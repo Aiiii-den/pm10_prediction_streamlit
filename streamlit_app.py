@@ -90,27 +90,21 @@ if st.button('Get prediction'):
     current_datetime = datetime.now()
     datetime_h_pred = current_datetime - timedelta(hours=1)
     datetime_h_pred = datetime_h_pred.replace(minute=0, second=0, microsecond=0)
-    datetime_h_r2 = current_datetime - timedelta(hours=2)
-    datetime_h_r2 = datetime_h_r2.replace(minute=0, second=0, microsecond=0)
+    datetime_h_mae = current_datetime - timedelta(hours=2)
+    datetime_h_mae = datetime_h_mae.replace(minute=0, second=0, microsecond=0)
 
     # regex the station code out of the chosen_station
     pattern = r'\(([^)]+)\)'
     match = re.search(pattern, chosen_station)
 
     input_pred = api_calls_predictions.fetch_weather_data(match.group(1), datetime_h_pred, datetime_h_pred)
-    st.dataframe(input_pred)
-    print(model.feature_names_in_)
     predicted_pm10 = model.predict(input_pred)[0]
 
-    input_r2 = api_calls_predictions.fetch_weather_data(match.group(1), datetime_h_r2, datetime_h_r2)
-    st.dataframe(input_r2)
-    y_r2 = input_r2
-    X_r2 = input_pred['pm10_h-1']
-    predicted_h_prev = model.predict(y_r2)
-    st.write(X_r2)
-    st.write(predicted_h_prev[0])
-    r2 = r2_score(X_r2, predicted_h_prev)
-
+    input_mae = api_calls_predictions.fetch_weather_data(match.group(1), datetime_h_mae, datetime_h_mae)
+    y_mae = input_mae
+    X_mae = input_pred['pm10_h-1'].item()
+    predicted_h_prev = model.predict(y_mae)
+    mae = median_absolute_error(np.array([X_mae]), predicted_h_prev)
 
     if predicted_pm10 > 20:
         status_text = f":red[UNHEALTHY]"
@@ -118,9 +112,8 @@ if st.button('Get prediction'):
         status_text = f":green[SAFE]"
 
     st.markdown(f"PM10 value for {chosen_station}: **{predicted_pm10:.2f} µg/m³** - **{status_text}**")
-    st.write(f"Prediction vs actual pm10 value of the previous hour: **{predicted_h_prev[0]}** - **{X_r2} "
-             f"| Median Absolute Error: {0}")
-
+    st.write(f"Prediction vs actual pm10 value of the previous hour: **{predicted_h_prev[0]:.2f}** vs **{X_mae}**\n\n"
+             f"Median Absolute Error of previous hour prediction: **{mae:.2f}**")
 
 st.subheader(f"Overview of pm10 progression for {chosen_station}", divider="blue")
 
@@ -142,7 +135,7 @@ if view == 'Yearly Comparison (Yearly Averages)':
     selected_years = st.sidebar.multiselect(
         'Select Years to Compare',
         sorted(df['datetime'].dt.year.unique()),
-        default=[2022, 2023, 2024]  # Set default years to show
+        default=[2020, 2021, 2022, 2023, 2024]  # Set default years to show
     )
 
     # Filter data based on the selected years

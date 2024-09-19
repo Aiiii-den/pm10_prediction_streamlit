@@ -27,8 +27,8 @@ def fetch_weather_data(station, start_date, end_date):
 # Function to load historical data for all months
 def load_historical_data(station):
     historical_data = pd.DataFrame()
-    start_date = datetime(2022, 1, 1)
-    date_rn = datetime(2024, 9, 17)
+    start_date = datetime(2015, 1, 1)
+    date_rn = datetime(2024, 9, 19)
 
     current_date = start_date
     while current_date <= date_rn:
