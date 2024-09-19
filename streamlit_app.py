@@ -1,12 +1,14 @@
 import re
-import threading
 import time
+from datetime import datetime, timedelta
 import streamlit as st
 import pandas as pd
 import pickle
+from sklearn.metrics import median_absolute_error, r2_score
 import numpy as np
 
-from api_call import load_historical_data, fetch_latest_hour_data
+import api_calls_predictions
+from api_calls_graphs import load_historical_data, fetch_latest_hour_data
 
 
 # ---- ML MODEL STUFF ----
@@ -19,14 +21,15 @@ def load_model():
 
 
 model = load_model()
-# ---- DATA LOGIC ----
+
+# ---- VISUALISATION DATA LOADING ----
 
 # Define the stations
 stations = ["Tempelhof-Schöneberg (mc124)", "Wedding (mc010)"]
 pattern = r'\(([^)]+)\)'
 
 
-# Calls function from api_call.py to load initial data
+# Calls function from api_calls_graphs.py to load initial data
 @st.cache_data()
 def get_initial_data():
     all_data = {}
@@ -74,28 +77,50 @@ chosen_station = st.selectbox(
     stations,
 )
 
-
 df = st.session_state['incremented_data'][chosen_station]
-df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce', utc=True) #TODO remove utc=True once datetime has been formatted
+df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce',
+                                utc=True)  # TODO remove utc=True once datetime has been formatted
 
 # input_data_prediction = pd.DataFrame({
 #    'pm10_h-1': df["core"] == "pm10",
 #    # Add more features as needed
 # })
 
-#TODO call api and create input data + let it predict
-predicted_pm10 = 5  # model.predict()
+if st.button('Get prediction'):
+    current_datetime = datetime.now()
+    datetime_h_pred = current_datetime - timedelta(hours=1)
+    datetime_h_pred = datetime_h_pred.replace(minute=0, second=0, microsecond=0)
+    datetime_h_r2 = current_datetime - timedelta(hours=2)
+    datetime_h_r2 = datetime_h_r2.replace(minute=0, second=0, microsecond=0)
+
+    # regex the station code out of the chosen_station
+    pattern = r'\(([^)]+)\)'
+    match = re.search(pattern, chosen_station)
+
+    input_pred = api_calls_predictions.fetch_weather_data(match.group(1), datetime_h_pred, datetime_h_pred)
+    st.dataframe(input_pred)
+    print(model.feature_names_in_)
+    predicted_pm10 = model.predict(input_pred)[0]
+
+    input_r2 = api_calls_predictions.fetch_weather_data(match.group(1), datetime_h_r2, datetime_h_r2)
+    st.dataframe(input_r2)
+    y_r2 = input_r2
+    X_r2 = input_pred['pm10_h-1']
+    predicted_h_prev = model.predict(y_r2)
+    st.write(X_r2)
+    st.write(predicted_h_prev[0])
+    r2 = r2_score(X_r2, predicted_h_prev)
 
 
-if predicted_pm10 > 20:
-    status_text = f":red[UNHEALTHY]"
-else:
-    status_text = f":green[SAFE]"
+    if predicted_pm10 > 20:
+        status_text = f":red[UNHEALTHY]"
+    else:
+        status_text = f":green[SAFE]"
 
-st.markdown(f"PM10 value for {chosen_station}: **{predicted_pm10:.2f} µg/m³** - **{status_text}**")
+    st.markdown(f"PM10 value for {chosen_station}: **{predicted_pm10:.2f} µg/m³** - **{status_text}**")
+    st.write(f"Prediction vs actual pm10 value of the previous hour: **{predicted_h_prev[0]}** - **{X_r2} "
+             f"| Median Absolute Error: {0}")
 
-r2_score = 0.2
-st.write(f"R2 score of previous hour PM10 prediction: **{r2_score}**")
 
 st.subheader(f"Overview of pm10 progression for {chosen_station}", divider="blue")
 
@@ -110,10 +135,6 @@ view = st.sidebar.selectbox('Select View', [
 
 start_year = df['datetime'].dt.year.min()
 end_year = df['datetime'].dt.year.max()
-
-# Define each visualization case
-import streamlit as st
-import pandas as pd
 
 # Define each visualization case
 if view == 'Yearly Comparison (Yearly Averages)':
@@ -200,7 +221,7 @@ elif view == 'Daily Comparison (Hourly Averages)':
     # Select a specific day for the hourly view
     selected_date = st.sidebar.date_input(
         'Select Date',
-        value = pd.Timestamp.now().date()
+        value=pd.Timestamp.now().date()
     )
 
     # Filter data for the selected date

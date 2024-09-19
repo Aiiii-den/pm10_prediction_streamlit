@@ -15,13 +15,11 @@ def fetch_weather_data(station, start_date, end_date):
         "end": end_date.strftime("%d.%m.%Y %H:%M")
     }
     api_endpoint = f"https://luftdaten.berlin.de/api/stations/{station}/data"
-    print(api_endpoint)
     response = requests.get(api_endpoint, params=params)
     data = response.json()
     if data:
         month_data = pd.json_normalize(data) #TODO cut off hour +2 and stuff from datetime string
         month_data = month_data.dropna()
-        print(month_data)
         return month_data
     return pd.DataFrame()
 
@@ -31,7 +29,6 @@ def load_historical_data(station):
     historical_data = pd.DataFrame()
     start_date = datetime(2022, 1, 1)
     date_rn = datetime(2024, 9, 17)
-    print(start_date, date_rn)
 
     current_date = start_date
     while current_date <= date_rn:
