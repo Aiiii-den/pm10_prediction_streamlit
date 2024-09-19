@@ -17,3 +17,6 @@ A simple Streamlit app template for you to modify!
    ```
    $ streamlit run streamlit_app.py
    ```
+   
+
+Deployed app at: https://pm10-prediction.streamlit.app/
