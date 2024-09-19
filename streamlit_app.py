@@ -127,8 +127,10 @@ if st.button('Get prediction'):
         colour = "#FF0000"
         status_text = "VERY BAD"
 
+    station_info_condensed = chosen_station[:chosen_station.index(')') + 1].strip()
+
     st.markdown(
-        f"PM10 value for {chosen_station}: **{predicted_pm10:.2f} µg/m³** --"
+        f"PM10 value for {station_info_condensed} at {datetime.now().hour} o'clock: **{predicted_pm10:.2f} µg/m³** --"
         f" <span style='color:{colour};'><strong>{status_text}</strong></span>",
         unsafe_allow_html=True
     )
@@ -137,9 +139,9 @@ if st.button('Get prediction'):
 
 st.subheader(f"Overview of pm10 progression for {chosen_station}", divider="blue")
 
-last_update = datetime.now()
+last_update_time = datetime.now()
 if st.button("Update Data"):
-    datetime_from = last_update - timedelta(hours=1)
+    datetime_from = last_update_time - timedelta(hours=1)
     datetime_from = datetime_from.replace(minute=0, second=0, microsecond=0)
     datetime_till = datetime.now() - timedelta(hours=1)
     datetime_till = datetime_till.replace(minute=0, second=0, microsecond=0)
@@ -147,7 +149,7 @@ if st.button("Update Data"):
         update_data(station, datetime_from, datetime_till)
         last_update = datetime.now()
 
-formatted_update_time = last_update.strftime("%d.%m.%Y %H:%M")
+formatted_update_time = last_update_time.strftime("%d.%m.%Y %H:%M")
 st.write(f"Last updated: {formatted_update_time}")
 
 # Sidebar for User Inputs
