@@ -13,8 +13,8 @@ def fetch_weather_data(station, start_date_time, end_date_time):
     }
     api_endpoint = f"https://luftdaten.berlin.de/api/stations/{station}/data"
     response = requests.get(api_endpoint, params=params)
-    data = response.json()
-    if data:
+    if response.json():
+        data = response.json()
         return get_input_data(data)
     return pd.DataFrame()
 
@@ -23,7 +23,7 @@ def get_input_data(api_data):
     # Initialize an empty dictionary to hold the features
     features = {}
 
-    # Parse the datetime from the first entry & adjust to get the next hour (which is supposed to be used for prediction)
+    # Parse the datetime from the first entry & adjust to get the next hour
     timestamp = pd.to_datetime(api_data[0]['datetime'])
     next_hour = (timestamp + pd.DateOffset(hours=1)).replace(minute=0, second=0, microsecond=0)
     # Extract time features

@@ -90,9 +90,9 @@ chosen_station_regex = match.group(1)
 
 if st.button('Get prediction'):
     current_datetime = datetime.now(german_tz)
-    datetime_h_pred = current_datetime
+    datetime_h_pred = current_datetime - timedelta(hours=1)
     datetime_h_pred = datetime_h_pred.replace(minute=0, second=0, microsecond=0)
-    datetime_h_mae = current_datetime - timedelta(hours=1)
+    datetime_h_mae = current_datetime - timedelta(hours=2)
     datetime_h_mae = datetime_h_mae.replace(minute=0, second=0, microsecond=0)
 
     input_pred = api_calls_predictions.fetch_weather_data(chosen_station_regex, datetime_h_pred, datetime_h_pred)
@@ -131,7 +131,8 @@ if st.button('Get prediction'):
     station_info_condensed = chosen_station[:chosen_station.index(')') + 1].strip()
 
     st.markdown(
-        f"Predicted PM10 value for {station_info_condensed} at {(datetime.now(german_tz) + timedelta(hours=1)).hour} o'clock: **{predicted_pm10:.2f} µg/m³** --"
+        f"Predicted PM10 value for {station_info_condensed} {(datetime.now(german_tz)).hour} to "
+        f"{(datetime.now(german_tz) + timedelta(hours=1)).hour} o'clock: **{predicted_pm10:.2f} µg/m³** --"
         f" <span style='color:{colour};'><strong>{status_text}</strong></span>",
         unsafe_allow_html=True
     )
