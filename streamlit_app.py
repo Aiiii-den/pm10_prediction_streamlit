@@ -89,7 +89,7 @@ match = re.search(pattern, chosen_station)
 chosen_station_regex = match.group(1)
 station_info_condensed = chosen_station[:chosen_station.index(')') + 1].strip()
 
-if st.button('Get prediction'):
+if st.button('Get Prediction'):
     current_datetime = datetime.now(german_tz)
     datetime_h_pred = current_datetime
     datetime_h_pred = datetime_h_pred.replace(minute=0, second=0, microsecond=0)
