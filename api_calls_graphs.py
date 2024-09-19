@@ -6,7 +6,6 @@ from dateutil.relativedelta import relativedelta
 
 # Fetch weather data for a specific month
 def fetch_weather_data(station, start_date, end_date):
-    print(station)
     params = {
         "timespan": "custom",
         "core": "pm10",
@@ -18,9 +17,9 @@ def fetch_weather_data(station, start_date, end_date):
     response = requests.get(api_endpoint, params=params)
     data = response.json()
     if data:
-        month_data = pd.json_normalize(data) #TODO cut off hour +2 and stuff from datetime string
+        month_data = pd.json_normalize(data)
         month_data = month_data.dropna()
-        return month_data
+        return cut_off_timezone_data(month_data)
     return pd.DataFrame()
 
 
@@ -49,3 +48,11 @@ def fetch_latest_hour_data(station):
     start_date = now - timedelta(hours=1)
     end_date = now
     return fetch_weather_data(station, start_date, end_date)
+
+
+def cut_off_timezone_data(month_data):
+    month_data.loc[:, 'datetime'] = month_data['datetime'].astype(str).str.slice(0, 19)
+    month_data['datetime'] = pd.to_datetime(month_data['datetime'], format='mixed')
+    month_data.loc[:, 'datetime'] = month_data['datetime'].dt.tz_localize(None)
+    print(month_data)
+    return month_data

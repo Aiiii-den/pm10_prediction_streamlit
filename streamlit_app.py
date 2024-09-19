@@ -78,8 +78,7 @@ chosen_station = st.selectbox(
 )
 
 df = st.session_state['incremented_data'][chosen_station]
-df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce',
-                                utc=True)  # TODO remove utc=True once datetime has been formatted
+df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
 
 # input_data_prediction = pd.DataFrame({
 #    'pm10_h-1': df["core"] == "pm10",
@@ -137,7 +136,6 @@ if view == 'Yearly Comparison (Yearly Averages)':
         sorted(df['datetime'].dt.year.unique()),
         default=[2020, 2021, 2022, 2023, 2024]  # Set default years to show
     )
-
     # Filter data based on the selected years
     df_filtered = df[df['datetime'].dt.year.isin(selected_years)]
 
