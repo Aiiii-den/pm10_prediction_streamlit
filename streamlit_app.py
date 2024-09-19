@@ -73,7 +73,7 @@ german_tz = pytz.timezone('Europe/Berlin')
 st.title("PM10 LEVEL OVERVIEW")
 
 # ---- CHOOSE STATION TO PREDICT AND OVERVIEW ----
-st.subheader(f"Prediction of pm10 for the current hour", divider="blue")
+st.subheader(f"Prediction of pm10", divider="blue")
 
 chosen_station = st.selectbox(
     "Which station would you like to get the data for?",
@@ -87,15 +87,25 @@ df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
 pattern = r'\(([^)]+)\)'
 match = re.search(pattern, chosen_station)
 chosen_station_regex = match.group(1)
+station_info_condensed = chosen_station[:chosen_station.index(')') + 1].strip()
 
 if st.button('Get prediction'):
     current_datetime = datetime.now(german_tz)
-    datetime_h_pred = current_datetime - timedelta(hours=1)
+    datetime_h_pred = current_datetime
     datetime_h_pred = datetime_h_pred.replace(minute=0, second=0, microsecond=0)
-    datetime_h_mae = current_datetime - timedelta(hours=2)
+    datetime_h_mae = current_datetime - timedelta(hours=1)
     datetime_h_mae = datetime_h_mae.replace(minute=0, second=0, microsecond=0)
 
     input_pred = api_calls_predictions.fetch_weather_data(chosen_station_regex, datetime_h_pred, datetime_h_pred)
+    if input_pred.empty:
+        print(current_datetime)
+        print("entered condition")
+        datetime_h_pred = current_datetime - timedelta(hours=1)
+        datetime_h_pred = datetime_h_pred.replace(minute=0, second=0, microsecond=0)
+        datetime_h_mae = current_datetime - timedelta(hours=2)
+        datetime_h_mae = datetime_h_mae.replace(minute=0, second=0, microsecond=0)
+        input_pred = api_calls_predictions.fetch_weather_data(chosen_station_regex, datetime_h_pred, datetime_h_pred)
+
     predicted_pm10 = model.predict(input_pred)[0]
 
     input_mae = api_calls_predictions.fetch_weather_data(chosen_station_regex, datetime_h_mae, datetime_h_mae)
@@ -128,18 +138,17 @@ if st.button('Get prediction'):
         colour = "#FF0000"
         status_text = "VERY BAD"
 
-    station_info_condensed = chosen_station[:chosen_station.index(')') + 1].strip()
+    proper_time_prediction = (datetime_h_pred + timedelta(hours=1)).hour
 
     st.markdown(
-        f"Predicted PM10 value for {station_info_condensed} {(datetime.now(german_tz)).hour} to "
-        f"{(datetime.now(german_tz) + timedelta(hours=1)).hour} o'clock: **{predicted_pm10:.2f} µg/m³** --"
+        f"Predicted PM10 value for {station_info_condensed} at {proper_time_prediction} o'clock: **{predicted_pm10:.2f} µg/m³** --"
         f" <span style='color:{colour};'><strong>{status_text}</strong></span>",
         unsafe_allow_html=True
     )
     st.write(f"Prediction vs actual pm10 value of the previous hour: **{predicted_h_prev[0]:.2f}** vs **{X_mae}**\n\n"
              f"Median Absolute Error of previous hour prediction: **{mae:.2f}**")
 
-st.subheader(f"Overview of pm10 progression for {chosen_station}", divider="blue")
+st.subheader(f"Overview of pm10 progression for {station_info_condensed}", divider="blue")
 
 last_update_time = datetime.now(german_tz)
 if st.button("Update Data"):
