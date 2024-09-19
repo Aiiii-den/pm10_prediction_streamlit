@@ -27,14 +27,11 @@ model = load_model()
 # Define the stations
 stations = [
     "Buch (mc077) category: suburb",
-    "Friedrichshagen (mc085) category: suburb",
     "Friedrichshain-Kreuzberg (mc174) category: traffic",
-    "Frohnau (mc145) category: suburb",
     "Grunewald (mc032) category: suburb",
-    "Karlshorst (mc282) category: background",
     "Mitte (mc171) category: background",
     "Mitte (mc190) category: traffic",
-    "Neukölln (mc143) category: traffic",
+    "Neukölln (mc144) category: traffic",
     "Neuköln (mc042) category: background",
     "Steglitz-Zehlendorf (mc117) category: traffic",
     "Tempelhof-Schöneberg (mc124) category: traffic",
@@ -93,9 +90,9 @@ chosen_station_regex = match.group(1)
 
 if st.button('Get prediction'):
     current_datetime = datetime.now(german_tz)
-    datetime_h_pred = current_datetime - timedelta(hours=1)
+    datetime_h_pred = current_datetime
     datetime_h_pred = datetime_h_pred.replace(minute=0, second=0, microsecond=0)
-    datetime_h_mae = current_datetime - timedelta(hours=2)
+    datetime_h_mae = current_datetime - timedelta(hours=1)
     datetime_h_mae = datetime_h_mae.replace(minute=0, second=0, microsecond=0)
 
     input_pred = api_calls_predictions.fetch_weather_data(chosen_station_regex, datetime_h_pred, datetime_h_pred)
@@ -134,7 +131,7 @@ if st.button('Get prediction'):
     station_info_condensed = chosen_station[:chosen_station.index(')') + 1].strip()
 
     st.markdown(
-        f"PM10 value for {station_info_condensed} at {datetime.now(german_tz).hour} o'clock: **{predicted_pm10:.2f} µg/m³** --"
+        f"Predicted PM10 value for {station_info_condensed} at {(datetime.now(german_tz) + timedelta(hours=1)).hour} o'clock: **{predicted_pm10:.2f} µg/m³** --"
         f" <span style='color:{colour};'><strong>{status_text}</strong></span>",
         unsafe_allow_html=True
     )
@@ -145,9 +142,9 @@ st.subheader(f"Overview of pm10 progression for {chosen_station}", divider="blue
 
 last_update_time = datetime.now(german_tz)
 if st.button("Update Data"):
-    datetime_from = last_update_time - timedelta(hours=1)
+    datetime_from = last_update_time
     datetime_from = datetime_from.replace(minute=0, second=0, microsecond=0)
-    datetime_till = datetime.now(german_tz) - timedelta(hours=1)
+    datetime_till = datetime.now(german_tz)
     datetime_till = datetime_till.replace(minute=0, second=0, microsecond=0)
     for station in stations:
         update_data(station, datetime_from, datetime_till)
