@@ -55,12 +55,25 @@ if 'incremented_data' not in st.session_state:
     st.session_state['incremented_data'] = get_initial_data()
 
 
+def update_vis_data():
+    datetime_from = st.session_state['incremented_data']['Buch (mc077) category: suburb']['datetime'].max() + \
+                    pd.DateOffset(hours=1)
+    datetime_from = datetime_from.replace(minute=0, second=0, microsecond=0)
+    datetime_till = datetime.now(german_tz)
+    datetime_till = datetime_till.replace(minute=0, second=0, microsecond=0)
+    for station in stations:
+        update_data(station, datetime_from, datetime_till)
+
+
 def update_data(station_name, start_date, end_date):
     all_data = st.session_state['incremented_data']
     match_initial = re.search(pattern, station_name)
     updated_data = fetch_weather_data(match_initial.group(1), start_date, end_date)
     if not updated_data.empty:
-        all_data[station] = pd.concat([all_data[station], updated_data], ignore_index=True)
+        # all_data[station] = pd.concat([all_data[station], updated_data], ignore_index=True)
+        all_data[station_name] = pd.concat([all_data[station_name], updated_data], ignore_index=True).drop_duplicates(
+            subset=['datetime'])
+
     st.session_state['incremented_data'] = all_data
 
 
@@ -142,7 +155,8 @@ if st.button('Get Prediction'):
         proper_time_prediction = (datetime_h_pred + timedelta(hours=1)).hour
 
         st.markdown(
-            f"Predicted PM10 value for {station_info_condensed} at {proper_time_prediction} o'clock: **{predicted_pm10:.2f} µg/m³** --"
+            f"Predicted PM10 value for {station_info_condensed} at {proper_time_prediction} o'clock:"
+            f" **{predicted_pm10:.2f} µg/m³** --"
             f" <span style='color:{colour};'><strong>{status_text}</strong></span>",
             unsafe_allow_html=True
         )
@@ -152,26 +166,23 @@ if st.button('Get Prediction'):
 
 st.subheader(f"Overview of pm10 progression for {station_info_condensed}", divider="blue")
 
+
+# Define the German timezone
+german_tz = pytz.timezone('Europe/Berlin')
+
 # Initialize update time once during deployment
 if 'latest_update_time' not in st.session_state:
-    # Store the initial time in session_state
     st.session_state['latest_update_time'] = datetime.now(german_tz)
 
 
-def update_time():
-    st.session_state['latest_update_time'] = datetime.now(german_tz)
-
+last_update_time = datetime.now(german_tz)
+update_vis_data()
 
 if st.button("Update Data"):
-    datetime_from = st.session_state['latest_update_time']
-    datetime_from = datetime_from.replace(minute=0, second=0, microsecond=0)
-    datetime_till = datetime.now(german_tz)
-    datetime_till = datetime_till.replace(minute=0, second=0, microsecond=0)
-    for station in stations:
-        update_data(station, datetime_from, datetime_till)
-    update_time()
+    update_vis_data()
+    last_update_time = datetime.now(german_tz)
 
-formatted_update_time = st.session_state['latest_update_time'].strftime("%d.%m.%Y %H:%M")
+formatted_update_time = last_update_time.strftime("%d.%m.%Y %H:%M")
 st.write(f"Last updated: {formatted_update_time}")
 
 # Sidebar for User Inputs
@@ -192,7 +203,7 @@ if view == 'Yearly Comparison (Yearly Averages)':
     selected_years = st.sidebar.multiselect(
         'Select Years to Compare',
         sorted(df['datetime'].dt.year.unique()),
-        #default=[2020, 2021, 2022, 2023, 2024]  # Set default years to show
+        # default=[2020, 2021, 2022, 2023, 2024]  # Set default years to show
     )
     # Filter data based on the selected years
     df_filtered = df[df['datetime'].dt.year.isin(selected_years)]
