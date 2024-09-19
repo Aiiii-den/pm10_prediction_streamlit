@@ -27,7 +27,6 @@ model = load_model()
 # Define the stations
 stations = [
     "Buch (mc077) category: suburb",
-    "Friedrichshain-Kreuzberg (mc174) category: traffic",
     "Grunewald (mc032) category: suburb",
     "Mitte (mc171) category: background",
     "Mitte (mc190) category: traffic",
@@ -98,69 +97,81 @@ if st.button('Get Prediction'):
 
     input_pred = api_calls_predictions.fetch_weather_data(chosen_station_regex, datetime_h_pred, datetime_h_pred)
     if input_pred.empty:
-        print(current_datetime)
         print("entered condition")
         datetime_h_pred = current_datetime - timedelta(hours=1)
         datetime_h_pred = datetime_h_pred.replace(minute=0, second=0, microsecond=0)
         datetime_h_mae = current_datetime - timedelta(hours=2)
         datetime_h_mae = datetime_h_mae.replace(minute=0, second=0, microsecond=0)
         input_pred = api_calls_predictions.fetch_weather_data(chosen_station_regex, datetime_h_pred, datetime_h_pred)
+        if input_pred.empty:
+            st.write("Weather station down!")
 
-    predicted_pm10 = model.predict(input_pred)[0]
+    if not input_pred.empty:
+        predicted_pm10 = model.predict(input_pred)[0]
 
-    input_mae = api_calls_predictions.fetch_weather_data(chosen_station_regex, datetime_h_mae, datetime_h_mae)
-    y_mae = input_mae
-    X_mae = input_pred['pm10_h-1'].item()
-    predicted_h_prev = model.predict(y_mae)
-    mae = median_absolute_error(np.array([X_mae]), predicted_h_prev)
+        input_mae = api_calls_predictions.fetch_weather_data(chosen_station_regex, datetime_h_mae, datetime_h_mae)
+        y_mae = input_mae
+        X_mae = input_pred['pm10_h-1'].item()
+        predicted_h_prev = model.predict(y_mae)
+        mae = median_absolute_error(np.array([X_mae]), predicted_h_prev)
 
-    status_colors = {
-        'good': '#006400',  # Dark Green
-        'fair': '#008000',  # Green
-        'moderate': '#FFFF00',  # Yellow
-        'poor': '#FFA500',  # Orange
-        'unhealthy': '#FF0000'  # Red
-    }
+        status_colors = {
+            'good': '#006400',  # Dark Green
+            'fair': '#008000',  # Green
+            'moderate': '#FFFF00',  # Yellow
+            'poor': '#FFA500',  # Orange
+            'unhealthy': '#FF0000'  # Red
+        }
 
-    if predicted_pm10 < 21:
-        colour = "#006400"
-        status_text = "VERY GOOD"
-    elif predicted_pm10 < 41:
-        colour = "#90EE90"
-        status_text = "GOOD"
-    elif predicted_pm10 < 101:
-        colour = "#FFFF00"
-        status_text = "MODERATE"
-    elif predicted_pm10 < 181:
-        colour = "#FFA500"
-        status_text = "BAD"
-    else:
-        colour = "#FF0000"
-        status_text = "VERY BAD"
+        if predicted_pm10 < 21:
+            colour = "#006400"
+            status_text = "VERY GOOD"
+        elif predicted_pm10 < 41:
+            colour = "#90EE90"
+            status_text = "GOOD"
+        elif predicted_pm10 < 101:
+            colour = "#FFFF00"
+            status_text = "MODERATE"
+        elif predicted_pm10 < 181:
+            colour = "#FFA500"
+            status_text = "BAD"
+        else:
+            colour = "#FF0000"
+            status_text = "VERY BAD"
 
-    proper_time_prediction = (datetime_h_pred + timedelta(hours=1)).hour
+        proper_time_prediction = (datetime_h_pred + timedelta(hours=1)).hour
 
-    st.markdown(
-        f"Predicted PM10 value for {station_info_condensed} at {proper_time_prediction} o'clock: **{predicted_pm10:.2f} µg/m³** --"
-        f" <span style='color:{colour};'><strong>{status_text}</strong></span>",
-        unsafe_allow_html=True
-    )
-    st.write(f"Prediction vs actual pm10 value of the previous hour: **{predicted_h_prev[0]:.2f}** vs **{X_mae}**\n\n"
-             f"Median Absolute Error of previous hour prediction: **{mae:.2f}**")
+        st.markdown(
+            f"Predicted PM10 value for {station_info_condensed} at {proper_time_prediction} o'clock: **{predicted_pm10:.2f} µg/m³** --"
+            f" <span style='color:{colour};'><strong>{status_text}</strong></span>",
+            unsafe_allow_html=True
+        )
+        st.write(
+            f"Prediction vs actual pm10 value of the previous hour: **{predicted_h_prev[0]:.2f}** vs **{X_mae}**\n\n"
+            f"Median Absolute Error of previous hour prediction: **{mae:.2f}**")
 
 st.subheader(f"Overview of pm10 progression for {station_info_condensed}", divider="blue")
 
-last_update_time = datetime.now(german_tz)
+# Initialize update time once during deployment
+if 'latest_update_time' not in st.session_state:
+    # Store the initial time in session_state
+    st.session_state['latest_update_time'] = datetime.now(german_tz)
+
+
+def update_time():
+    st.session_state['latest_update_time'] = datetime.now(german_tz)
+
+
 if st.button("Update Data"):
-    datetime_from = last_update_time
+    datetime_from = st.session_state['latest_update_time']
     datetime_from = datetime_from.replace(minute=0, second=0, microsecond=0)
     datetime_till = datetime.now(german_tz)
     datetime_till = datetime_till.replace(minute=0, second=0, microsecond=0)
     for station in stations:
         update_data(station, datetime_from, datetime_till)
-        last_update_time = datetime.now(german_tz)
+    update_time()
 
-formatted_update_time = last_update_time.strftime("%d.%m.%Y %H:%M")
+formatted_update_time = st.session_state['latest_update_time'].strftime("%d.%m.%Y %H:%M")
 st.write(f"Last updated: {formatted_update_time}")
 
 # Sidebar for User Inputs
@@ -181,7 +192,7 @@ if view == 'Yearly Comparison (Yearly Averages)':
     selected_years = st.sidebar.multiselect(
         'Select Years to Compare',
         sorted(df['datetime'].dt.year.unique()),
-        default=[2020, 2021, 2022, 2023, 2024]  # Set default years to show
+        #default=[2020, 2021, 2022, 2023, 2024]  # Set default years to show
     )
     # Filter data based on the selected years
     df_filtered = df[df['datetime'].dt.year.isin(selected_years)]
