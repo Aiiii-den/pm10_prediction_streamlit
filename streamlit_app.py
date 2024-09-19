@@ -5,6 +5,7 @@ import pandas as pd
 import pickle
 from sklearn.metrics import median_absolute_error
 import numpy as np
+import pytz
 
 import api_calls_predictions
 from api_calls_graphs import load_historical_data, fetch_weather_data
@@ -49,7 +50,7 @@ def get_initial_data():
     for station_element in stations:
         match_initial = re.search(pattern_local, station_element)
         all_data[station_element] = load_historical_data(match_initial.group(1))
-        print(station_element + "finished")
+        print(station_element + " finished")
     return all_data
 
 
@@ -66,6 +67,9 @@ def update_data(station_name, start_date, end_date):
         all_data[station] = pd.concat([all_data[station], updated_data], ignore_index=True)
     st.session_state['incremented_data'] = all_data
 
+
+# ---- TIMEZONE FIX ----
+german_tz = pytz.timezone('Europe/Berlin')
 
 # ---- UI STUFF ----
 
@@ -88,7 +92,7 @@ match = re.search(pattern, chosen_station)
 chosen_station_regex = match.group(1)
 
 if st.button('Get prediction'):
-    current_datetime = datetime.now()
+    current_datetime = datetime.now(german_tz)
     datetime_h_pred = current_datetime - timedelta(hours=1)
     datetime_h_pred = datetime_h_pred.replace(minute=0, second=0, microsecond=0)
     datetime_h_mae = current_datetime - timedelta(hours=2)
@@ -130,7 +134,7 @@ if st.button('Get prediction'):
     station_info_condensed = chosen_station[:chosen_station.index(')') + 1].strip()
 
     st.markdown(
-        f"PM10 value for {station_info_condensed} at {datetime.now().hour} o'clock: **{predicted_pm10:.2f} µg/m³** --"
+        f"PM10 value for {station_info_condensed} at {datetime.now(german_tz).hour} o'clock: **{predicted_pm10:.2f} µg/m³** --"
         f" <span style='color:{colour};'><strong>{status_text}</strong></span>",
         unsafe_allow_html=True
     )
@@ -139,15 +143,15 @@ if st.button('Get prediction'):
 
 st.subheader(f"Overview of pm10 progression for {chosen_station}", divider="blue")
 
-last_update_time = datetime.now()
+last_update_time = datetime.now(german_tz)
 if st.button("Update Data"):
     datetime_from = last_update_time - timedelta(hours=1)
     datetime_from = datetime_from.replace(minute=0, second=0, microsecond=0)
-    datetime_till = datetime.now() - timedelta(hours=1)
+    datetime_till = datetime.now(german_tz) - timedelta(hours=1)
     datetime_till = datetime_till.replace(minute=0, second=0, microsecond=0)
     for station in stations:
         update_data(station, datetime_from, datetime_till)
-        last_update_time = datetime.now()
+        last_update_time = datetime.now(german_tz)
 
 formatted_update_time = last_update_time.strftime("%d.%m.%Y %H:%M")
 st.write(f"Last updated: {formatted_update_time}")
