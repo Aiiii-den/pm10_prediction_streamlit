@@ -59,6 +59,7 @@ def update_vis_data():
     datetime_from = st.session_state['incremented_data']['Buch (mc077) category: suburb']['datetime'].max() + \
                     pd.DateOffset(hours=1)
     datetime_from = datetime_from.replace(minute=0, second=0, microsecond=0)
+    print(datetime_from)
     datetime_till = datetime.now(german_tz)
     datetime_till = datetime_till.replace(minute=0, second=0, microsecond=0)
     for station in stations:
@@ -84,7 +85,6 @@ german_tz = pytz.timezone('Europe/Berlin')
 
 st.title("PM10 LEVEL OVERVIEW")
 
-# ---- CHOOSE STATION TO PREDICT AND OVERVIEW ----
 st.subheader(f"Prediction of pm10", divider="blue")
 
 chosen_station = st.selectbox(
@@ -128,6 +128,7 @@ if st.button('Get Prediction'):
         predicted_h_prev = model.predict(y_mae)
         mae = median_absolute_error(np.array([X_mae]), predicted_h_prev)
 
+        # based on the following grading: https://www.shmu.sk/en/?page=1&id=oko_imis
         status_colors = {
             'good': '#006400',  # Dark Green
             'fair': '#008000',  # Green
