@@ -147,7 +147,7 @@ if st.button("Update Data"):
     datetime_till = datetime_till.replace(minute=0, second=0, microsecond=0)
     for station in stations:
         update_data(station, datetime_from, datetime_till)
-        last_update = datetime.now()
+        last_update_time = datetime.now()
 
 formatted_update_time = last_update_time.strftime("%d.%m.%Y %H:%M")
 st.write(f"Last updated: {formatted_update_time}")
