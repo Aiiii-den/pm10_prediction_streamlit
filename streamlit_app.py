@@ -34,8 +34,8 @@ pattern = r'\(([^)]+)\)'
 def get_initial_data():
     all_data = {}
     for station in stations:
-        match = re.search(pattern, station)
-        all_data[station] = load_historical_data(match.group(1))
+        match_initial = re.search(pattern, station)
+        all_data[station] = load_historical_data(match_initial.group(1))
     return all_data
 
 
@@ -105,12 +105,35 @@ if st.button('Get prediction'):
     predicted_h_prev = model.predict(y_mae)
     mae = median_absolute_error(np.array([X_mae]), predicted_h_prev)
 
-    if predicted_pm10 > 20:
-        status_text = f":red[UNHEALTHY]"
-    else:
-        status_text = f":green[SAFE]"
+    status_colors = {
+        'good': '#006400',  # Dark Green
+        'fair': '#008000',  # Green
+        'moderate': '#FFFF00',  # Yellow
+        'poor': '#FFA500',  # Orange
+        'unhealthy': '#FF0000'  # Red
+    }
 
-    st.markdown(f"PM10 value for {chosen_station}: **{predicted_pm10:.2f} µg/m³** - **{status_text}**")
+    if predicted_pm10 < 21:
+        colour = "#006400"
+        status_text = "VERY GOOD"
+    elif predicted_pm10 < 41:
+        colour = "#90EE90"
+        status_text = "GOOD"
+    elif predicted_pm10 < 101:
+        colour = "#FFFF00"
+        status_text = "MODERATE"
+    elif predicted_pm10 < 181:
+        colour = "#FFA500"
+        status_text = "BAD"
+    else:
+        colour = "#FF0000"
+        status_text = "VERY BAD"
+
+    st.markdown(
+        f"PM10 value for {chosen_station}: **{predicted_pm10:.2f} µg/m³** --"
+        f" <span style='color:{colour};'><strong>{status_text}</strong></span>",
+        unsafe_allow_html=True
+    )
     st.write(f"Prediction vs actual pm10 value of the previous hour: **{predicted_h_prev[0]:.2f}** vs **{X_mae}**\n\n"
              f"Median Absolute Error of previous hour prediction: **{mae:.2f}**")
 
