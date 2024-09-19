@@ -42,14 +42,6 @@ def load_historical_data(station):
     return historical_data
 
 
-# Function to fetch and append the latest hourly data
-def fetch_latest_hour_data(station):
-    now = datetime.now()
-    start_date = now - timedelta(hours=1)
-    end_date = now
-    return fetch_weather_data(station, start_date, end_date)
-
-
 def cut_off_timezone_data(month_data):
     month_data.loc[:, 'datetime'] = month_data['datetime'].astype(str).str.slice(0, 19)
     month_data['datetime'] = pd.to_datetime(month_data['datetime'], format='mixed')

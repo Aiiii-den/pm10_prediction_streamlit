@@ -39,15 +39,15 @@ stations = [
     "Tempelhof-Schöneberg (mc124) category: traffic",
     "Wedding (mc010) category: background",
 ]
-pattern = r'\(([^)]+)\)'
 
 
 # Calls function from api_calls_graphs.py to load initial data
 @st.cache_data()
 def get_initial_data():
     all_data = {}
+    pattern_local = r'\(([^)]+)\)'
     for station_element in stations:
-        match_initial = re.search(pattern, station_element)
+        match_initial = re.search(pattern_local, station_element)
         all_data[station_element] = load_historical_data(match_initial.group(1))
     return all_data
 
@@ -55,18 +55,6 @@ def get_initial_data():
 # Load initial data
 if 'incremented_data' not in st.session_state:
     st.session_state['incremented_data'] = get_initial_data()
-
-
-def update_data_old(start_date, end_date):
-    all_data = st.session_state['incremented_data']
-    for station_element in all_data.keys():
-        match_initial = re.search(pattern, station_element)
-        # latest_hour_data = fetch_latest_hour_data(match_initial.group(1))
-        updated_data = fetch_weather_data(match_initial.group(1), start_date, end_date)
-        if not updated_data.empty:
-            all_data[station_element] = pd.concat([all_data[station_element], updated_data], ignore_index=True)
-    st.session_state['incremented_data'] = all_data
-    st.rerun()
 
 
 def update_data(station_name, start_date, end_date):

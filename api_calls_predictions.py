@@ -1,6 +1,5 @@
 import requests
 import pandas as pd
-from datetime import datetime
 
 
 def fetch_weather_data(station, start_date_time, end_date_time):
