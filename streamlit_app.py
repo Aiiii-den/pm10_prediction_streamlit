@@ -1,14 +1,13 @@
 import re
-import time
 from datetime import datetime, timedelta
 import streamlit as st
 import pandas as pd
 import pickle
-from sklearn.metrics import median_absolute_error, r2_score
+from sklearn.metrics import median_absolute_error
 import numpy as np
 
 import api_calls_predictions
-from api_calls_graphs import load_historical_data, fetch_latest_hour_data
+from api_calls_graphs import load_historical_data, fetch_weather_data
 
 
 # ---- ML MODEL STUFF ----
@@ -16,8 +15,8 @@ from api_calls_graphs import load_historical_data, fetch_latest_hour_data
 @st.cache_resource
 def load_model():
     with open('mc124_randomforest.pkl', 'rb') as f:
-        model = pickle.load(f)
-    return model
+        model_load = pickle.load(f)
+    return model_load
 
 
 model = load_model()
@@ -25,7 +24,21 @@ model = load_model()
 # ---- VISUALISATION DATA LOADING ----
 
 # Define the stations
-stations = ["Tempelhof-Schöneberg (mc124)", "Wedding (mc010)"]
+stations = [
+    "Buch (mc077) category: suburb",
+    "Friedrichshagen (mc085) category: suburb",
+    "Friedrichshain-Kreuzberg (mc174) category: traffic",
+    "Frohnau (mc145) category: suburb",
+    "Grunewald (mc032) category: suburb",
+    "Karlshorst (mc282) category: background",
+    "Mitte (mc171) category: background",
+    "Mitte (mc190) category: traffic",
+    "Neukölln (mc143) category: traffic",
+    "Neuköln (mc042) category: background",
+    "Steglitz-Zehlendorf (mc117) category: traffic",
+    "Tempelhof-Schöneberg (mc124) category: traffic",
+    "Wedding (mc010) category: background",
+]
 pattern = r'\(([^)]+)\)'
 
 
@@ -33,9 +46,9 @@ pattern = r'\(([^)]+)\)'
 @st.cache_data()
 def get_initial_data():
     all_data = {}
-    for station in stations:
-        match_initial = re.search(pattern, station)
-        all_data[station] = load_historical_data(match_initial.group(1))
+    for station_element in stations:
+        match_initial = re.search(pattern, station_element)
+        all_data[station_element] = load_historical_data(match_initial.group(1))
     return all_data
 
 
@@ -44,26 +57,26 @@ if 'incremented_data' not in st.session_state:
     st.session_state['incremented_data'] = get_initial_data()
 
 
-def update_data():
+def update_data_old(start_date, end_date):
     all_data = st.session_state['incremented_data']
-    for station in all_data.keys():
-        latest_hour_data = fetch_latest_hour_data(station)
-        if not latest_hour_data.empty:
-            all_data[station] = pd.concat([all_data[station], latest_hour_data], ignore_index=True)
+    for station_element in all_data.keys():
+        match_initial = re.search(pattern, station_element)
+        # latest_hour_data = fetch_latest_hour_data(match_initial.group(1))
+        updated_data = fetch_weather_data(match_initial.group(1), start_date, end_date)
+        if not updated_data.empty:
+            all_data[station_element] = pd.concat([all_data[station_element], updated_data], ignore_index=True)
+    st.session_state['incremented_data'] = all_data
+    st.rerun()
+
+
+def update_data(station_name, start_date, end_date):
+    all_data = st.session_state['incremented_data']
+    match_initial = re.search(pattern, station_name)
+    updated_data = fetch_weather_data(match_initial.group(1), start_date, end_date)
+    if not updated_data.empty:
+        all_data[station] = pd.concat([all_data[station], updated_data], ignore_index=True)
     st.session_state['incremented_data'] = all_data
 
-
-# TODO FIX because I wont deploy on exact hour
-# Update data periodically
-if 'last_update' not in st.session_state:
-    st.session_state['last_update'] = time.time()
-
-# Calculate elapsed time and refresh data if necessary
-elapsed_time = time.time() - st.session_state['last_update']
-if elapsed_time > 3600:  # 1 hour
-    update_data()
-    st.session_state['last_update'] = time.time()
-    st.rerun()  # Refresh the Streamlit app
 
 # ---- UI STUFF ----
 
@@ -80,10 +93,10 @@ chosen_station = st.selectbox(
 df = st.session_state['incremented_data'][chosen_station]
 df['datetime'] = pd.to_datetime(df['datetime'], errors='coerce')
 
-# input_data_prediction = pd.DataFrame({
-#    'pm10_h-1': df["core"] == "pm10",
-#    # Add more features as needed
-# })
+# regex the station code out of the chosen_station
+pattern = r'\(([^)]+)\)'
+match = re.search(pattern, chosen_station)
+chosen_station_regex = match.group(1)
 
 if st.button('Get prediction'):
     current_datetime = datetime.now()
@@ -92,14 +105,10 @@ if st.button('Get prediction'):
     datetime_h_mae = current_datetime - timedelta(hours=2)
     datetime_h_mae = datetime_h_mae.replace(minute=0, second=0, microsecond=0)
 
-    # regex the station code out of the chosen_station
-    pattern = r'\(([^)]+)\)'
-    match = re.search(pattern, chosen_station)
-
-    input_pred = api_calls_predictions.fetch_weather_data(match.group(1), datetime_h_pred, datetime_h_pred)
+    input_pred = api_calls_predictions.fetch_weather_data(chosen_station_regex, datetime_h_pred, datetime_h_pred)
     predicted_pm10 = model.predict(input_pred)[0]
 
-    input_mae = api_calls_predictions.fetch_weather_data(match.group(1), datetime_h_mae, datetime_h_mae)
+    input_mae = api_calls_predictions.fetch_weather_data(chosen_station_regex, datetime_h_mae, datetime_h_mae)
     y_mae = input_mae
     X_mae = input_pred['pm10_h-1'].item()
     predicted_h_prev = model.predict(y_mae)
@@ -139,6 +148,19 @@ if st.button('Get prediction'):
 
 st.subheader(f"Overview of pm10 progression for {chosen_station}", divider="blue")
 
+last_update = datetime.now()
+if st.button("Update Data"):
+    datetime_from = last_update - timedelta(hours=1)
+    datetime_from = datetime_from.replace(minute=0, second=0, microsecond=0)
+    datetime_till = datetime.now() - timedelta(hours=1)
+    datetime_till = datetime_till.replace(minute=0, second=0, microsecond=0)
+    for station in stations:
+        update_data(station, datetime_from, datetime_till)
+        last_update = datetime.now()
+
+formatted_update_time = last_update.strftime("%d.%m.%Y %H:%M")
+st.write(f"Last updated: {formatted_update_time}")
+
 # Sidebar for User Inputs
 st.sidebar.header('View Options')
 view = st.sidebar.selectbox('Select View', [
@@ -157,7 +179,8 @@ if view == 'Yearly Comparison (Yearly Averages)':
     selected_years = st.sidebar.multiselect(
         'Select Years to Compare',
         sorted(df['datetime'].dt.year.unique()),
-        default=[2020, 2021, 2022, 2023, 2024]  # Set default years to show
+        # default=[2020, 2021, 2022, 2023, 2024]  # Set default years to show
+        default=[2024]
     )
     # Filter data based on the selected years
     df_filtered = df[df['datetime'].dt.year.isin(selected_years)]

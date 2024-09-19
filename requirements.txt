@@ -3,3 +3,4 @@ sklearn
 pandas
 requests
 dateutil
+numpy

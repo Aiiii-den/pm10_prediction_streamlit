@@ -24,15 +24,15 @@ def get_input_data(api_data):
     # Initialize an empty dictionary to hold the features
     features = {}
 
-    # Parse the datetime from the first entry (assuming all entries have the same datetime)
+    # Parse the datetime from the first entry & adjust to get the next hour (which is supposed to be used for prediction)
     timestamp = pd.to_datetime(api_data[0]['datetime'])
-
+    next_hour = (timestamp + pd.DateOffset(hours=1)).replace(minute=0, second=0, microsecond=0)
     # Extract time features
-    features['hour'] = timestamp.hour
-    features['day'] = timestamp.day
-    features['month'] = timestamp.month
-    features['year'] = timestamp.year
-    features['day_of_week'] = timestamp.weekday()  # Monday = 0, Sunday = 6
+    features['hour'] = next_hour.hour
+    features['day'] = next_hour.day
+    features['month'] = next_hour.month
+    features['year'] = next_hour.year
+    features['day_of_week'] = next_hour.weekday()  # Monday = 0, Sunday = 6
     features['is_weekend'] = 1 if features['day_of_week'] >= 5 else 0
 
     # Map to store pollutant values
