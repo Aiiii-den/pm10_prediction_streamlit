@@ -49,6 +49,7 @@ def get_initial_data():
     for station_element in stations:
         match_initial = re.search(pattern_local, station_element)
         all_data[station_element] = load_historical_data(match_initial.group(1))
+        print(station_element + "finished")
     return all_data
 
 
