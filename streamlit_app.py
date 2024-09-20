@@ -181,7 +181,7 @@ if st.button("Update Data"):
     last_update_time = datetime.now(german_tz)
 
 formatted_update_time = last_update_time.strftime("%d.%m.%Y %H:%M")
-st.write(f"Last updated: {formatted_update_time}")
+st.write(f"Latest available data point (PM10): {formatted_update_time}")
 
 # Sidebar for User Inputs
 st.sidebar.header('View Options')
