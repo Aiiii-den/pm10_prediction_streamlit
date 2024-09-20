@@ -31,7 +31,7 @@ stations = [
     "Mitte (mc171) category: background",
     "Mitte (mc190) category: traffic",
     "Neuköln (mc042) category: background",
-    "Neukölln (mc144) category: traffic",
+    # "Neukölln (mc144) category: traffic",
     "Steglitz-Zehlendorf (mc117) category: traffic",
     "Tempelhof-Schöneberg (mc124) category: traffic",
     "Wedding (mc010) category: background",
@@ -201,7 +201,7 @@ if view == 'Yearly Comparison (Yearly Averages)':
     selected_years = st.sidebar.multiselect(
         'Select Years to Compare',
         sorted(df['datetime'].dt.year.unique()),
-        #default=[2020, 2021, 2022, 2023, 2024]  # Set default years to show
+        default=[2020, 2021, 2022, 2023, 2024]  # Set default years to show
     )
     # Filter data based on the selected years
     df_filtered = df[df['datetime'].dt.year.isin(selected_years)]
