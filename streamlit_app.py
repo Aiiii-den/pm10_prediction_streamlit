@@ -126,25 +126,17 @@ if st.button('Get Prediction'):
         predicted_h_prev = model.predict(y_mae)
         mae = median_absolute_error(np.array([X_mae]), predicted_h_prev)
 
-        # based on the following grading: https://www.shmu.sk/en/?page=1&id=oko_imis
-        status_colors = {
-            'good': '#006400',  # Dark Green
-            'fair': '#008000',  # Green
-            'moderate': '#FFFF00',  # Yellow
-            'poor': '#FFA500',  # Orange
-            'unhealthy': '#FF0000'  # Red
-        }
-
+        # based on the following grading: https://www.umweltbundesamt.de/berechnungsgrundlagen-luftqualitaetsindex
         if predicted_pm10 < 21:
             colour = "#006400"
             status_text = "VERY GOOD"
-        elif predicted_pm10 < 41:
+        elif predicted_pm10 < 35:
             colour = "#90EE90"
             status_text = "GOOD"
-        elif predicted_pm10 < 101:
+        elif predicted_pm10 < 51:
             colour = "#FFFF00"
             status_text = "MODERATE"
-        elif predicted_pm10 < 181:
+        elif predicted_pm10 < 101:
             colour = "#FFA500"
             status_text = "BAD"
         else:
